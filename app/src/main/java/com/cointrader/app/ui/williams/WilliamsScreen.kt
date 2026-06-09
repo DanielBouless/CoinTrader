@@ -47,7 +47,7 @@ fun WilliamsScreen(
                 },
                 actions = {
                     IconButton(onClick = { showSettings = !showSettings }) {
-                        Icon(Icons.Default.Tune, contentDescription = "Settings", tint = TextSecondary)
+                        Icon(Icons.Default.Tune, contentDescription = "Parameters", tint = TextSecondary)
                     }
                     IconButton(onClick = onNavigateToSetup) {
                         Icon(Icons.Default.Settings, contentDescription = "API Setup", tint = TextSecondary)
@@ -63,46 +63,51 @@ fun WilliamsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Settings panel
+            // Collapsible parameter panel
             AnimatedVisibility(visible = showSettings) {
                 SettingsPanel(
-                    wrPeriod = state.wrPeriod,
-                    dmiPeriod = state.dmiPeriod,
-                    lowerThreshold = state.lowerThreshold,
-                    onWrPeriodChange = viewModel::updateWrPeriod,
-                    onDmiPeriodChange = viewModel::updateDmiPeriod,
-                    onThresholdChange = viewModel::updateLowerThreshold
+                    wrPeriod        = state.wrPeriod,
+                    dmiPeriod       = state.dmiPeriod,
+                    lowerThreshold  = state.lowerThreshold,
+                    onWrPeriodChange    = viewModel::updateWrPeriod,
+                    onDmiPeriodChange   = viewModel::updateDmiPeriod,
+                    onThresholdChange   = viewModel::updateLowerThreshold
                 )
             }
 
-            // Scan button + progress
+            // Status bar + scan button
             ScanHeader(
-                isScanning = state.isScanning,
-                scanned = state.scanned,
-                total = state.total,
-                signalCount = state.signals.size,
+                state      = state,
                 onStartScan = viewModel::startScan,
-                onStopScan = viewModel::stopScan
+                onStopScan  = viewModel::stopScan
             )
 
+            // Error banner
             state.errorMessage?.let { err ->
                 Text(
-                    text = err,
+                    text  = "⚠ $err",
                     color = CoinRed,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
 
-            if (state.signals.isEmpty() && !state.isScanning) {
+            // Results or empty state
+            if (state.signals.isEmpty() && !state.isScanning && !state.isLoadingPairs) {
                 EmptyState()
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    modifier        = Modifier.fillMaxSize(),
+                    contentPadding  = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(state.signals.sortedByDescending { it.isEntry }) { signal ->
+                    // Entry signals first, then armed
+                    items(
+                        state.signals.sortedWith(
+                            compareByDescending<WilliamsDmiSignal> { it.isEntry }
+                                .thenByDescending { it.plusDI - it.minusDI }
+                        )
+                    ) { signal ->
                         SignalCard(signal)
                     }
                 }
@@ -111,72 +116,83 @@ fun WilliamsScreen(
     }
 }
 
+// ── Sub-composables ────────────────────────────────────────────────────────
+
 @Composable
 private fun ScanHeader(
-    isScanning: Boolean,
-    scanned: Int,
-    total: Int,
-    signalCount: Int,
+    state: WilliamsUiState,
     onStartScan: () -> Unit,
     onStopScan: () -> Unit
 ) {
+    val busy = state.isLoadingPairs || state.isScanning
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(DarkSurface)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier                = Modifier.fillMaxWidth(),
+            horizontalArrangement   = Arrangement.SpaceBetween,
+            verticalAlignment       = Alignment.CenterVertically
         ) {
-            Column {
-                if (isScanning) {
-                    Text(
-                        text = "Scanning $scanned / $total pairs...",
-                        color = TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else if (scanned > 0) {
-                    Text(
-                        text = "Found $signalCount signal${if (signalCount != 1) "s" else ""} in $total pairs",
-                        color = TextPrimary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else {
-                    Text(
-                        text = "Ready to scan ${total} crypto pairs",
-                        color = TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
+            Text(
+                text     = state.statusLine,
+                color    = if (busy) CoinBlue else TextSecondary,
+                style    = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f).padding(end = 12.dp)
+            )
 
             Button(
-                onClick = if (isScanning) onStopScan else onStartScan,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isScanning) CoinRed else CoinBlue
+                onClick = if (busy) onStopScan else onStartScan,
+                colors  = ButtonDefaults.buttonColors(
+                    containerColor = if (busy) CoinRed else CoinBlue
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(
-                    imageVector = if (isScanning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                if (state.isLoadingPairs) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color    = TextPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (busy) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
                 Spacer(Modifier.width(6.dp))
-                Text(if (isScanning) "Stop" else "Scan")
+                Text(if (busy) "Stop" else "Scan All")
             }
         }
 
-        if (isScanning) {
+        // Progress bar shown during actual pair scanning
+        if (state.isScanning && state.total > 0) {
             Spacer(Modifier.height(8.dp))
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "${state.scanned} / ${state.total}",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    "${state.signals.size} signal${if (state.signals.size != 1) "s" else ""}",
+                    color = if (state.signals.isNotEmpty()) CoinGreen else TextSecondary,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(
-                progress = { if (total > 0) scanned.toFloat() / total else 0f },
-                modifier = Modifier.fillMaxWidth(),
-                color = CoinBlue,
-                trackColor = DarkCard
+                progress    = { state.scanned.toFloat() / state.total },
+                modifier    = Modifier.fillMaxWidth(),
+                color       = CoinBlue,
+                trackColor  = DarkCard
             )
         }
     }
@@ -195,31 +211,29 @@ private fun SettingsPanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape  = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = DarkCard)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Strategy Parameters", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text(
+                "Strategy Parameters",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary
+            )
             Spacer(Modifier.height(12.dp))
 
+            SliderRow("W%R Period: $wrPeriod", wrPeriod.toFloat(), 5f..30f) {
+                onWrPeriodChange(it.roundToInt())
+            }
+            SliderRow("DMI Period: $dmiPeriod", dmiPeriod.toFloat(), 5f..30f) {
+                onDmiPeriodChange(it.roundToInt())
+            }
             SliderRow(
-                label = "W%R Period: $wrPeriod",
-                value = wrPeriod.toFloat(),
-                range = 5f..30f,
-                onValueChange = { onWrPeriodChange(it.roundToInt()) }
-            )
-            SliderRow(
-                label = "DMI Period: $dmiPeriod",
-                value = dmiPeriod.toFloat(),
-                range = 5f..30f,
-                onValueChange = { onDmiPeriodChange(it.roundToInt()) }
-            )
-            SliderRow(
-                label = "Oversold Threshold: ${lowerThreshold.roundToInt()}",
-                value = lowerThreshold.toFloat(),
-                range = -99f..-50f,
-                onValueChange = { onThresholdChange(it.toDouble()) }
-            )
+                "Oversold threshold: ${lowerThreshold.roundToInt()}",
+                lowerThreshold.toFloat(), -99f..-50f
+            ) {
+                onThresholdChange(it.toDouble())
+            }
         }
     }
 }
@@ -233,53 +247,57 @@ private fun SliderRow(
 ) {
     Text(label, color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
     Slider(
-        value = value,
+        value       = value,
         onValueChange = onValueChange,
-        valueRange = range,
-        colors = SliderDefaults.colors(thumbColor = CoinBlue, activeTrackColor = CoinBlue)
+        valueRange  = range,
+        colors      = SliderDefaults.colors(thumbColor = CoinBlue, activeTrackColor = CoinBlue)
     )
 }
 
 @Composable
 private fun SignalCard(signal: WilliamsDmiSignal) {
     val priceFormat = NumberFormat.getCurrencyInstance(Locale.US).apply {
-        maximumFractionDigits = if (signal.currentPrice < 1.0) 6 else 2
+        maximumFractionDigits = when {
+            signal.currentPrice >= 1000 -> 2
+            signal.currentPrice >= 1    -> 4
+            else                        -> 8
+        }
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
+        shape    = RoundedCornerShape(14.dp),
+        colors   = CardDefaults.cardColors(
             containerColor = if (signal.isEntry) DarkCard else DarkSurface
         ),
-        border = if (signal.isEntry) {
+        border = if (signal.isEntry)
             androidx.compose.foundation.BorderStroke(1.dp, CoinGreen)
-        } else null
+        else null
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header row: symbol + badge | price
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment     = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Text(
-                        text = signal.symbol.removeSuffix("-USD"),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimary,
+                        text       = signal.symbol,
+                        style      = MaterialTheme.typography.titleLarge,
+                        color      = TextPrimary,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.width(8.dp))
-                    if (signal.isEntry) {
-                        SignalBadge("ENTRY", CoinGreen)
-                    } else {
-                        SignalBadge("ARMED", CoinYellow)
-                    }
+                    SignalBadge(
+                        text  = if (signal.isEntry) "ENTRY" else "ARMED",
+                        color = if (signal.isEntry) CoinGreen else CoinYellow
+                    )
                 }
                 Text(
-                    text = priceFormat.format(signal.currentPrice),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
+                    text       = priceFormat.format(signal.currentPrice),
+                    style      = MaterialTheme.typography.titleMedium,
+                    color      = TextPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -288,17 +306,18 @@ private fun SignalCard(signal: WilliamsDmiSignal) {
             HorizontalDivider(color = DarkBackground, thickness = 1.dp)
             Spacer(Modifier.height(10.dp))
 
+            // Indicator metrics row
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 MetricColumn("W%R", "%.1f".format(signal.williamsR), CoinYellow)
-                MetricColumn("+DI", "%.1f".format(signal.plusDI), CoinGreen)
-                MetricColumn("−DI", "%.1f".format(signal.minusDI), CoinRed)
+                MetricColumn("+DI",  "%.1f".format(signal.plusDI),   CoinGreen)
+                MetricColumn("−DI",  "%.1f".format(signal.minusDI),  CoinRed)
                 MetricColumn(
-                    "+DI vs −DI",
-                    if (signal.plusDI > signal.minusDI) "Bull" else "Bear",
-                    if (signal.plusDI > signal.minusDI) CoinGreen else CoinRed
+                    label      = "Trend",
+                    value      = if (signal.plusDI > signal.minusDI) "Bullish" else "Bearish",
+                    valueColor = if (signal.plusDI > signal.minusDI) CoinGreen else CoinRed
                 )
             }
         }
@@ -308,50 +327,59 @@ private fun SignalCard(signal: WilliamsDmiSignal) {
 @Composable
 private fun SignalBadge(text: String, color: androidx.compose.ui.graphics.Color) {
     Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = color.copy(alpha = 0.15f)
+        shape  = RoundedCornerShape(6.dp),
+        color  = color.copy(alpha = 0.15f)
     ) {
         Text(
-            text = text,
-            color = color,
-            style = MaterialTheme.typography.labelSmall,
+            text       = text,
+            color      = color,
+            style      = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            modifier   = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         )
     }
 }
 
 @Composable
-private fun MetricColumn(label: String, value: String, valueColor: androidx.compose.ui.graphics.Color) {
+private fun MetricColumn(
+    label: String,
+    value: String,
+    valueColor: androidx.compose.ui.graphics.Color
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, color = TextSecondary, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(2.dp))
-        Text(value, color = valueColor, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            value,
+            color      = valueColor,
+            style      = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
 @Composable
 private fun EmptyState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector     = Icons.Default.Search,
                 contentDescription = null,
-                tint = TextSecondary,
-                modifier = Modifier.size(64.dp)
+                tint            = TextSecondary,
+                modifier        = Modifier.size(72.dp)
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Text(
-                text = "No signals yet",
+                text  = "No signals yet",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary
             )
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "Tap Scan to check 25 crypto pairs\nfor Williams %R + DMI signals.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp)
+                text      = "Tap Scan All to pull every tradeable pair from Coinbase and check each one for Williams %R + DMI entry signals.",
+                style     = MaterialTheme.typography.bodyMedium,
+                color     = TextSecondary.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
             )
         }
     }
