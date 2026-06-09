@@ -1,7 +1,6 @@
 [versions]
 agp = "7.3.0"
 kotlin = "1.8.10"
-ksp = "1.8.10-1.0.9"
 coreKtx = "1.9.0"
 lifecycleRuntimeKtx = "2.6.2"
 activityCompose = "1.6.1"
@@ -44,5 +43,5 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
