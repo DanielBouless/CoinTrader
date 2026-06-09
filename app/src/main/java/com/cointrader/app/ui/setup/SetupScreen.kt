@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cointrader.app.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(
     viewModel: SetupViewModel,
@@ -102,14 +103,14 @@ fun SetupScreen(
                         label = { Text("API Key Name") },
                         placeholder = { Text("organizations/.../apiKeys/...") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
+                        singleLine = true,
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
                             focusedBorderColor = CoinBlue,
                             unfocusedBorderColor = TextSecondary,
                             focusedLabelColor = CoinBlue,
                             unfocusedLabelColor = TextSecondary,
                             cursorColor = CoinBlue,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            textColor = TextPrimary
                         )
                     )
 
@@ -118,8 +119,9 @@ fun SetupScreen(
                         onValueChange = { privateKey = it; errorMessage = null },
                         label = { Text("EC Private Key (PEM)") },
                         placeholder = { Text("-----BEGIN EC PRIVATE KEY-----...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 4,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 120.dp),
                         maxLines = 8,
                         visualTransformation = if (privateKeyVisible) VisualTransformation.None
                                                else PasswordVisualTransformation(),
@@ -134,14 +136,13 @@ fun SetupScreen(
                                 )
                             }
                         },
-                        colors = OutlinedTextFieldDefaults.colors(
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
                             focusedBorderColor = CoinBlue,
                             unfocusedBorderColor = TextSecondary,
                             focusedLabelColor = CoinBlue,
                             unfocusedLabelColor = TextSecondary,
                             cursorColor = CoinBlue,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            textColor = TextPrimary
                         )
                     )
 
@@ -193,6 +194,8 @@ fun SetupScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
