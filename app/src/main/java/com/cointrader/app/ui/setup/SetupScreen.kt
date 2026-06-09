@@ -37,6 +37,16 @@ fun SetupScreen(
         if (hasCredentials) onNavigateToScanner()
     }
 
+    // Shared text field colors for both fields
+    val fieldColors = TextFieldDefaults.outlinedTextFieldColors(
+        textColor = TextPrimary,
+        cursorColor = CoinBlue,
+        focusedBorderColor = CoinBlue,
+        unfocusedBorderColor = TextSecondary,
+        focusedLabelColor = CoinBlue,
+        unfocusedLabelColor = TextSecondary
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -66,7 +76,6 @@ fun SetupScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = TextPrimary
             )
-
             Text(
                 text = "Williams %R + DMI Strategy",
                 style = MaterialTheme.typography.bodyMedium,
@@ -90,7 +99,6 @@ fun SetupScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary
                     )
-
                     Text(
                         text = "Get your API key from Coinbase Advanced Trade → Settings → API.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -104,14 +112,7 @@ fun SetupScreen(
                         placeholder = { Text("organizations/.../apiKeys/...") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = CoinBlue,
-                            unfocusedBorderColor = TextSecondary,
-                            focusedLabelColor = CoinBlue,
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = CoinBlue,
-                            textColor = TextPrimary
-                        )
+                        colors = fieldColors
                     )
 
                     OutlinedTextField(
@@ -136,14 +137,7 @@ fun SetupScreen(
                                 )
                             }
                         },
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = CoinBlue,
-                            unfocusedBorderColor = TextSecondary,
-                            focusedLabelColor = CoinBlue,
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = CoinBlue,
-                            textColor = TextPrimary
-                        )
+                        colors = fieldColors
                     )
 
                     errorMessage?.let { err ->

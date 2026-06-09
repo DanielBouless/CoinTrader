@@ -34,7 +34,8 @@ fun WilliamsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            // smallTopAppBarColors is the BOM 2022.12 API (topAppBarColors added later)
+            SmallTopAppBar(
                 title = {
                     Column {
                         Text("CoinTrader", color = TextPrimary, fontWeight = FontWeight.Bold)
@@ -53,7 +54,7 @@ fun WilliamsScreen(
                         Icon(Icons.Default.Settings, contentDescription = "API Setup", tint = TextSecondary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+                colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = DarkSurface)
             )
         },
         containerColor = DarkBackground
@@ -63,45 +64,40 @@ fun WilliamsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Collapsible parameter panel
             AnimatedVisibility(visible = showSettings) {
                 SettingsPanel(
-                    wrPeriod        = state.wrPeriod,
-                    dmiPeriod       = state.dmiPeriod,
-                    lowerThreshold  = state.lowerThreshold,
-                    onWrPeriodChange    = viewModel::updateWrPeriod,
-                    onDmiPeriodChange   = viewModel::updateDmiPeriod,
-                    onThresholdChange   = viewModel::updateLowerThreshold
+                    wrPeriod       = state.wrPeriod,
+                    dmiPeriod      = state.dmiPeriod,
+                    lowerThreshold = state.lowerThreshold,
+                    onWrPeriodChange   = viewModel::updateWrPeriod,
+                    onDmiPeriodChange  = viewModel::updateDmiPeriod,
+                    onThresholdChange  = viewModel::updateLowerThreshold
                 )
             }
 
-            // Status bar + scan button
             ScanHeader(
-                state      = state,
+                state       = state,
                 onStartScan = viewModel::startScan,
                 onStopScan  = viewModel::stopScan
             )
 
-            // Error banner
             state.errorMessage?.let { err ->
                 Text(
-                    text  = "⚠ $err",
-                    color = CoinRed,
+                    text     = "⚠ $err",
+                    color    = CoinRed,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium
+                    style    = MaterialTheme.typography.bodyMedium
                 )
             }
 
-            // Results or empty state
             if (state.signals.isEmpty() && !state.isScanning && !state.isLoadingPairs) {
                 EmptyState()
             } else {
                 LazyColumn(
-                    modifier        = Modifier.fillMaxSize(),
-                    contentPadding  = PaddingValues(16.dp),
+                    modifier            = Modifier.fillMaxSize(),
+                    contentPadding      = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Entry signals first, then armed
                     items(
                         state.signals.sortedWith(
                             compareByDescending<WilliamsDmiSignal> { it.isEntry }
@@ -116,7 +112,7 @@ fun WilliamsScreen(
     }
 }
 
-// ── Sub-composables ────────────────────────────────────────────────────────
+// ── Sub-composables ──────────────────────────────────────────────────────
 
 @Composable
 private fun ScanHeader(
@@ -133,15 +129,17 @@ private fun ScanHeader(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier                = Modifier.fillMaxWidth(),
-            horizontalArrangement   = Arrangement.SpaceBetween,
-            verticalAlignment       = Alignment.CenterVertically
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
         ) {
             Text(
                 text     = state.statusLine,
                 color    = if (busy) CoinBlue else TextSecondary,
                 style    = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f).padding(end = 12.dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp)
             )
 
             Button(
@@ -153,15 +151,15 @@ private fun ScanHeader(
             ) {
                 if (state.isLoadingPairs) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color    = TextPrimary,
+                        modifier    = Modifier.size(18.dp),
+                        color       = TextPrimary,
                         strokeWidth = 2.dp
                     )
                 } else {
                     Icon(
-                        imageVector = if (busy) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        imageVector        = if (busy) Icons.Default.Stop else Icons.Default.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier           = Modifier.size(18.dp)
                     )
                 }
                 Spacer(Modifier.width(6.dp))
@@ -169,7 +167,6 @@ private fun ScanHeader(
             }
         }
 
-        // Progress bar shown during actual pair scanning
         if (state.isScanning && state.total > 0) {
             Spacer(Modifier.height(8.dp))
             Row(
@@ -188,11 +185,12 @@ private fun ScanHeader(
                 )
             }
             Spacer(Modifier.height(4.dp))
+            // BOM 2022.12: progress is a Float, not a lambda
             LinearProgressIndicator(
-                progress    = { state.scanned.toFloat() / state.total },
-                modifier    = Modifier.fillMaxWidth(),
-                color       = CoinBlue,
-                trackColor  = DarkCard
+                progress   = state.scanned.toFloat() / state.total,
+                modifier   = Modifier.fillMaxWidth(),
+                color      = CoinBlue,
+                trackColor = DarkCard
             )
         }
     }
@@ -247,10 +245,13 @@ private fun SliderRow(
 ) {
     Text(label, color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
     Slider(
-        value       = value,
+        value         = value,
         onValueChange = onValueChange,
-        valueRange  = range,
-        colors      = SliderDefaults.colors(thumbColor = CoinBlue, activeTrackColor = CoinBlue)
+        valueRange    = range,
+        colors        = SliderDefaults.colors(
+            thumbColor       = CoinBlue,
+            activeTrackColor = CoinBlue
+        )
     )
 }
 
@@ -275,13 +276,15 @@ private fun SignalCard(signal: WilliamsDmiSignal) {
         else null
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header row: symbol + badge | price
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier          = Modifier.weight(1f)
+                ) {
                     Text(
                         text       = signal.symbol,
                         style      = MaterialTheme.typography.titleLarge,
@@ -303,17 +306,17 @@ private fun SignalCard(signal: WilliamsDmiSignal) {
             }
 
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = DarkBackground, thickness = 1.dp)
+            // BOM 2022.12: Divider, not HorizontalDivider
+            Divider(color = DarkBackground, thickness = 1.dp)
             Spacer(Modifier.height(10.dp))
 
-            // Indicator metrics row
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MetricColumn("W%R", "%.1f".format(signal.williamsR), CoinYellow)
-                MetricColumn("+DI",  "%.1f".format(signal.plusDI),   CoinGreen)
-                MetricColumn("−DI",  "%.1f".format(signal.minusDI),  CoinRed)
+                MetricColumn("W%R",  "%.1f".format(signal.williamsR), CoinYellow)
+                MetricColumn("+DI",  "%.1f".format(signal.plusDI),    CoinGreen)
+                MetricColumn("−DI",  "%.1f".format(signal.minusDI),   CoinRed)
                 MetricColumn(
                     label      = "Trend",
                     value      = if (signal.plusDI > signal.minusDI) "Bullish" else "Bearish",
@@ -327,8 +330,8 @@ private fun SignalCard(signal: WilliamsDmiSignal) {
 @Composable
 private fun SignalBadge(text: String, color: androidx.compose.ui.graphics.Color) {
     Surface(
-        shape  = RoundedCornerShape(6.dp),
-        color  = color.copy(alpha = 0.15f)
+        shape = RoundedCornerShape(6.dp),
+        color = color.copy(alpha = 0.15f)
     ) {
         Text(
             text       = text,
@@ -361,12 +364,15 @@ private fun MetricColumn(
 @Composable
 private fun EmptyState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier            = Modifier.padding(32.dp)
+        ) {
             Icon(
-                imageVector     = Icons.Default.Search,
+                imageVector        = Icons.Default.Search,
                 contentDescription = null,
-                tint            = TextSecondary,
-                modifier        = Modifier.size(72.dp)
+                tint               = TextSecondary,
+                modifier           = Modifier.size(72.dp)
             )
             Spacer(Modifier.height(16.dp))
             Text(
