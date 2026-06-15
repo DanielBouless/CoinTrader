@@ -15,24 +15,57 @@ class SecureStorage @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private const val TAG = "SecureStorage"
-        private const val PREFS_FILE_NAME = "cointrader_secure_prefs"
-        private const val KEY_API_KEY_NAME = "coinbase_api_key_name"
-        private const val KEY_PRIVATE_KEY = "coinbase_private_key"
+        private const val TAG           = "SecureStorage"
+        private const val PREFS_FILE    = "cointrader_secure_prefs"
+        private const val KEY_ACCESS    = "oauth_access_token"
+        private const val KEY_REFRESH   = "oauth_refresh_token"
+        private const val KEY_EXPIRES   = "oauth_token_expires_at"
     }
 
-    private val sharedPreferences: SharedPreferences by lazy { createOrRecover() }
+    private val prefs: SharedPreferences by lazy { createOrRecover() }
 
-    private fun buildMasterKey(): MasterKey =
+    // ── Token persistence ─────────────────────────────────────────────────
+
+    fun saveTokens(accessToken: String, refreshToken: String, expiresIn: Int) {
+        val expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
+        prefs.edit()
+            .putString(KEY_ACCESS,  accessToken)
+            .putString(KEY_REFRESH, refreshToken)
+            .putLong(KEY_EXPIRES,   expiresAt)
+            .apply()
+    }
+
+    fun getAccessToken(): String?  = prefs.getString(KEY_ACCESS,  null)
+    fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH, null)
+
+    fun isTokenExpired(): Boolean {
+        val expiresAt = prefs.getLong(KEY_EXPIRES, 0L)
+        if (expiresAt == 0L) return true
+        // Treat as expired 60 s early to avoid races
+        return System.currentTimeMillis() >= expiresAt - 60_000L
+    }
+
+    fun isLoggedIn(): Boolean =
+        getAccessToken() != null && getRefreshToken() != null
+
+    fun clearTokens() {
+        prefs.edit()
+            .remove(KEY_ACCESS)
+            .remove(KEY_REFRESH)
+            .remove(KEY_EXPIRES)
+            .apply()
+    }
+
+    // ── EncryptedSharedPreferences setup ─────────────────────────────────
+
+    private fun buildMasterKey() =
         MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
 
     private fun buildPrefs(key: MasterKey): SharedPreferences =
         EncryptedSharedPreferences.create(
-            context,
-            PREFS_FILE_NAME,
-            key,
+            context, PREFS_FILE, key,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
@@ -41,38 +74,18 @@ class SecureStorage @Inject constructor(
         return try {
             buildPrefs(buildMasterKey())
         } catch (e: Exception) {
-            Log.w(TAG, "EncryptedSharedPreferences keyset corrupted — wiping and recreating", e)
+            Log.w(TAG, "Keyset corrupted — wiping and recreating", e)
             wipeCorruptedState()
             buildPrefs(buildMasterKey())
         }
     }
 
     private fun wipeCorruptedState() {
-        try { context.deleteSharedPreferences(PREFS_FILE_NAME) } catch (_: Exception) {}
+        try { context.deleteSharedPreferences(PREFS_FILE) } catch (_: Exception) {}
         try {
-            val keyStore = KeyStore.getInstance("AndroidKeyStore").also { it.load(null) }
-            if (keyStore.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)) {
-                keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            }
+            val ks = KeyStore.getInstance("AndroidKeyStore").also { it.load(null) }
+            if (ks.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS))
+                ks.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
         } catch (_: Exception) {}
-    }
-
-    fun saveApiCredentials(apiKeyName: String, privateKey: String) {
-        sharedPreferences.edit()
-            .putString(KEY_API_KEY_NAME, apiKeyName)
-            .putString(KEY_PRIVATE_KEY, privateKey)
-            .apply()
-    }
-
-    fun getApiKeyName(): String? = sharedPreferences.getString(KEY_API_KEY_NAME, null)
-    fun getPrivateKey(): String? = sharedPreferences.getString(KEY_PRIVATE_KEY, null)
-
-    fun hasCredentials(): Boolean = getApiKeyName() != null && getPrivateKey() != null
-
-    fun clearCredentials() {
-        sharedPreferences.edit()
-            .remove(KEY_API_KEY_NAME)
-            .remove(KEY_PRIVATE_KEY)
-            .apply()
     }
 }

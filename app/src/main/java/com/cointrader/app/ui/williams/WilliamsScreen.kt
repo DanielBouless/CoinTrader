@@ -26,8 +26,8 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WilliamsScreen(
-    onNavigateToSetup: () -> Unit,
-    viewModel: WilliamsViewModel = hiltViewModel()
+    onLogout: () -> Unit,
+    viewModel: WilliamsViewModel
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
@@ -50,8 +50,8 @@ fun WilliamsScreen(
                     IconButton(onClick = { showSettings = !showSettings }) {
                         Icon(Icons.Default.Tune, contentDescription = "Parameters", tint = TextSecondary)
                     }
-                    IconButton(onClick = onNavigateToSetup) {
-                        Icon(Icons.Default.Settings, contentDescription = "API Setup", tint = TextSecondary)
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.Logout, contentDescription = "Disconnect Coinbase", tint = TextSecondary)
                     }
                 },
                 colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = DarkSurface)
