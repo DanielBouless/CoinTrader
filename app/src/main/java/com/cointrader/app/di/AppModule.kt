@@ -1,6 +1,7 @@
 package com.cointrader.app.di
 
 import android.content.Context
+import com.cointrader.app.data.security.SecureStorage
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,7 +15,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideApplicationContext(
+    fun provideSecureStorage(
         @ApplicationContext context: Context
-    ): Context = context
+    ): SecureStorage = SecureStorage(context)
 }

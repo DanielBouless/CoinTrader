@@ -15,13 +15,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
-        // ── Coinbase OAuth2 app credentials ──────────────────────────────────
-        // Register your OAuth app at https://www.coinbase.com/settings/api
-        // Set the redirect URI to: cointrader://oauth/callback
-        buildConfigField("String", "COINBASE_CLIENT_ID",     "\"YOUR_CLIENT_ID_HERE\"")
-        buildConfigField("String", "COINBASE_CLIENT_SECRET", "\"YOUR_CLIENT_SECRET_HERE\"")
-        buildConfigField("String", "COINBASE_REDIRECT_URI",  "\"cointrader://oauth/callback\"")
     }
 
     buildTypes {
@@ -38,7 +31,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
@@ -68,6 +60,5 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.security.crypto)
-    implementation(libs.androidx.browser)          // Chrome Custom Tabs for OAuth login
     debugImplementation(libs.androidx.ui.tooling)
 }

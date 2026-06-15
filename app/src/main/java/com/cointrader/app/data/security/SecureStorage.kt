@@ -15,53 +15,34 @@ class SecureStorage @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private const val TAG           = "SecureStorage"
-        private const val PREFS_FILE    = "cointrader_secure_prefs"
-        private const val KEY_ACCESS    = "oauth_access_token"
-        private const val KEY_REFRESH   = "oauth_refresh_token"
-        private const val KEY_EXPIRES   = "oauth_token_expires_at"
+        private const val TAG            = "SecureStorage"
+        private const val PREFS_FILE     = "cointrader_secure_prefs"
+        private const val KEY_API_NAME   = "coinbase_api_key_name"
+        private const val KEY_PRIV_KEY   = "coinbase_private_key"
     }
 
     private val prefs: SharedPreferences by lazy { createOrRecover() }
 
-    // ── Token persistence ─────────────────────────────────────────────────
-
-    fun saveTokens(accessToken: String, refreshToken: String, expiresIn: Int) {
-        val expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
+    fun saveApiCredentials(apiKeyName: String, privateKey: String) {
         prefs.edit()
-            .putString(KEY_ACCESS,  accessToken)
-            .putString(KEY_REFRESH, refreshToken)
-            .putLong(KEY_EXPIRES,   expiresAt)
+            .putString(KEY_API_NAME, apiKeyName)
+            .putString(KEY_PRIV_KEY, privateKey)
             .apply()
     }
 
-    fun getAccessToken(): String?  = prefs.getString(KEY_ACCESS,  null)
-    fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH, null)
+    fun getApiKeyName(): String?  = prefs.getString(KEY_API_NAME, null)
+    fun getPrivateKey(): String?  = prefs.getString(KEY_PRIV_KEY, null)
+    fun hasCredentials(): Boolean = getApiKeyName() != null && getPrivateKey() != null
 
-    fun isTokenExpired(): Boolean {
-        val expiresAt = prefs.getLong(KEY_EXPIRES, 0L)
-        if (expiresAt == 0L) return true
-        // Treat as expired 60 s early to avoid races
-        return System.currentTimeMillis() >= expiresAt - 60_000L
-    }
-
-    fun isLoggedIn(): Boolean =
-        getAccessToken() != null && getRefreshToken() != null
-
-    fun clearTokens() {
+    fun clearCredentials() {
         prefs.edit()
-            .remove(KEY_ACCESS)
-            .remove(KEY_REFRESH)
-            .remove(KEY_EXPIRES)
+            .remove(KEY_API_NAME)
+            .remove(KEY_PRIV_KEY)
             .apply()
     }
-
-    // ── EncryptedSharedPreferences setup ─────────────────────────────────
 
     private fun buildMasterKey() =
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
 
     private fun buildPrefs(key: MasterKey): SharedPreferences =
         EncryptedSharedPreferences.create(

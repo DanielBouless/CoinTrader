@@ -14,27 +14,10 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
-
-            <!-- App launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <!--
-                Coinbase OAuth2 redirect: cointrader://oauth/callback
-                After the user logs in, Coinbase redirects here with ?code=xxx&state=yyy
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="cointrader"
-                    android:host="oauth"
-                    android:pathPrefix="/callback" />
             </intent-filter>
         </activity>
     </application>

@@ -7,55 +7,44 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.cointrader.app.ui.auth.LoginScreen
-import com.cointrader.app.ui.auth.LoginState
-import com.cointrader.app.ui.auth.LoginViewModel
+import com.cointrader.app.ui.setup.SetupScreen
+import com.cointrader.app.ui.setup.SetupViewModel
 import com.cointrader.app.ui.williams.WilliamsScreen
 import com.cointrader.app.ui.williams.WilliamsViewModel
 
 sealed class Screen(val route: String) {
-    object Login    : Screen("login")
+    object Setup    : Screen("setup")
     object Williams : Screen("williams")
 }
 
 @Composable
-fun AppNavigation(loginViewModel: LoginViewModel) {
+fun AppNavigation() {
     val navController = rememberNavController()
-    val loginState by loginViewModel.state.collectAsStateWithLifecycle()
 
-    // Determine start destination based on current session state
-    val startDestination = when (loginState) {
-        is LoginState.LoggedIn -> Screen.Williams.route
-        else                   -> Screen.Login.route
-    }
+    NavHost(navController = navController, startDestination = Screen.Setup.route) {
 
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
-
-        composable(Screen.Login.route) {
-            // Once logged in, navigate to the scanner and clear the login back-stack
-            if (loginState is LoginState.LoggedIn) {
-                navController.navigate(Screen.Williams.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
+        composable(Screen.Setup.route) {
+            val viewModel: SetupViewModel = hiltViewModel()
+            val hasCredentials by viewModel.hasCredentials.collectAsStateWithLifecycle()
+            SetupScreen(
+                viewModel          = viewModel,
+                hasCredentials     = hasCredentials,
+                onNavigateToScanner = {
+                    navController.navigate(Screen.Williams.route) {
+                        popUpTo(Screen.Setup.route) { inclusive = true }
+                    }
                 }
-            }
-            LoginScreen(
-                state   = loginState,
-                onLogin = loginViewModel::login
             )
         }
 
         composable(Screen.Williams.route) {
-            // If token becomes invalid (e.g. revoked remotely), bounce back to login
-            if (loginState is LoginState.LoggedOut) {
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(Screen.Williams.route) { inclusive = true }
-                }
-            }
-            val williamsViewModel: WilliamsViewModel = hiltViewModel()
+            val viewModel: WilliamsViewModel = hiltViewModel()
             WilliamsScreen(
-                viewModel = williamsViewModel,
+                viewModel = viewModel,
                 onLogout  = {
-                    loginViewModel.logout()
+                    navController.navigate(Screen.Setup.route) {
+                        popUpTo(Screen.Williams.route) { inclusive = true }
+                    }
                 }
             )
         }
